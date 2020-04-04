@@ -200,7 +200,9 @@ private:
 			{
 				ULONGLONG startTick = GetTickCount64();
 				
-				auto idx = shared.mem->idx;
+				auto idx = shared.mem->idx - 1;
+				if (idx == -1)
+					idx = 9;
 				if (idx < 10)
 				{
 					RZEventData* event = &shared.mem->events[idx];
