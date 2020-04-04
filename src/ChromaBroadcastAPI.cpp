@@ -93,15 +93,15 @@ void SetBroadcastLog(RZSTATUS value)
 	switch (value)
 	{
 	case BROADCAST_SUCCESS: Log(RZLOGLEVEL_INFO, __FILE__, __LINE__, "[ChromaBroadcastAPI]%s returns status BROADCAST_SUCCESS", __FUNCTION__); break;
-	case CHROMA_DEVICE_NOT_FOUND: Log(2, __FILE__, __LINE__, "[ChromaBroadcastAPI]%s returns status CHROMA_DEVICE_NOT_FOUND", __FUNCTION__); break;
-	case SYNAPSE3_NOT_INSTALLED: Log(2, __FILE__, __LINE__, "[ChromaBroadcastAPI]%s returns status SYNAPSE3_NOT_INSTALLED", __FUNCTION__); break;
-	case SYNAPSE3_NOT_RUNNING: Log(2, __FILE__, __LINE__, "[ChromaBroadcastAPI]%s returns status SYNAPSE3_NOT_RUNNING", __FUNCTION__); break;
-	case SYNAPSE3_NOT_ONLINE: Log(2, __FILE__, __LINE__, "[ChromaBroadcastAPI]%s returns status SYNAPSE3_NOT_ONLINE", __FUNCTION__); break;
-	case BROADCAST_DISABLED: Log(2, __FILE__, __LINE__, "[ChromaBroadcastAPI]%s returns status BROADCAST_DISABLED", __FUNCTION__); break;
-	case BROADCAST_APP_DISABLED: Log(2, __FILE__, __LINE__, "[ChromaBroadcastAPI]%s returns status BROADCAST_APP_DISABLED", __FUNCTION__); break;
-	case BROADCAST_MODULE_NOT_FOUND: Log(2, __FILE__, __LINE__, "[ChromaBroadcastAPI]%s returns status BROADCAST_MODULE_NOT_FOUND", __FUNCTION__); break;
-	case BROADCAST_DATA_NULL: Log(2, __FILE__, __LINE__, "[ChromaBroadcastAPI]%s returns status BROADCAST_DATA_NULL", "SetBroadcastLog"); break;
-	case BROADCAST_DATA_INIT_SUCCESS: Log(2, __FILE__, __LINE__, "[ChromaBroadcastAPI]%s returns status BROADCAST_DATA_INIT_SUCCESS", __FUNCTION__); break;
+	case CHROMA_DEVICE_NOT_FOUND: Log(RZLOGLEVEL_WARN, __FILE__, __LINE__, "[ChromaBroadcastAPI]%s returns status CHROMA_DEVICE_NOT_FOUND", __FUNCTION__); break;
+	case SYNAPSE3_NOT_INSTALLED: Log(RZLOGLEVEL_WARN, __FILE__, __LINE__, "[ChromaBroadcastAPI]%s returns status SYNAPSE3_NOT_INSTALLED", __FUNCTION__); break;
+	case SYNAPSE3_NOT_RUNNING: Log(RZLOGLEVEL_WARN, __FILE__, __LINE__, "[ChromaBroadcastAPI]%s returns status SYNAPSE3_NOT_RUNNING", __FUNCTION__); break;
+	case SYNAPSE3_NOT_ONLINE: Log(RZLOGLEVEL_WARN, __FILE__, __LINE__, "[ChromaBroadcastAPI]%s returns status SYNAPSE3_NOT_ONLINE", __FUNCTION__); break;
+	case BROADCAST_DISABLED: Log(RZLOGLEVEL_WARN, __FILE__, __LINE__, "[ChromaBroadcastAPI]%s returns status BROADCAST_DISABLED", __FUNCTION__); break;
+	case BROADCAST_APP_DISABLED: Log(RZLOGLEVEL_WARN, __FILE__, __LINE__, "[ChromaBroadcastAPI]%s returns status BROADCAST_APP_DISABLED", __FUNCTION__); break;
+	case BROADCAST_MODULE_NOT_FOUND: Log(RZLOGLEVEL_WARN, __FILE__, __LINE__, "[ChromaBroadcastAPI]%s returns status BROADCAST_MODULE_NOT_FOUND", __FUNCTION__); break;
+	case BROADCAST_DATA_NULL: Log(RZLOGLEVEL_WARN, __FILE__, __LINE__, "[ChromaBroadcastAPI]%s returns status BROADCAST_DATA_NULL", "SetBroadcastLog"); break;
+	case BROADCAST_DATA_INIT_SUCCESS: Log(RZLOGLEVEL_WARN, __FILE__, __LINE__, "[ChromaBroadcastAPI]%s returns status BROADCAST_DATA_INIT_SUCCESS", __FUNCTION__); break;
 	}
 
 	lastLogStatus = value;
