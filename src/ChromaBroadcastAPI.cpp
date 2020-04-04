@@ -17,9 +17,11 @@ const char RZBROADCAST_REG_SUBKEY[] = "Software\\Razer\\ChromaBroadcast";
 const char RZBROADCAST_DAT_KEY[] = "h4cQkm3pL3a5E8u71FyoUc4Ntm34NsU5ukc";
 const char RZBROADCAST_DEV_ENABLE[] = "{E69A5B35-5E42-42A0-8721-9F7279269950}";
 
+#define RZLOGLEVEL_FATAL 0
 #define RZLOGLEVEL_ERROR 1
 #define RZLOGLEVEL_WARN 2
 #define RZLOGLEVEL_INFO 3
+#define RZLOGLEVEL_DEBUG 4
 
 #define BROADCAST_SUCCESS 0
 #define CHROMA_DEVICE_NOT_FOUND 1
@@ -56,9 +58,30 @@ struct RZEventSharedMemory
 	RZEventSharedMemoryData* mem;
 };
 
-void Log(int loglevel, const char *filename, int fileline, const char *format, ...)
+FILE* logFile = nullptr;
+
+void Log(unsigned char loglevel, const char *filename, int fileline, const char *format, ...)
 {
-	printf("%s\n", format);
+	if (!logFile)
+		return;
+
+	if (loglevel > RZLOGLEVEL_DEBUG)
+		loglevel = RZLOGLEVEL_DEBUG;
+
+	va_list ArgList;
+	va_start(ArgList, format);
+
+	char line[260];
+	vsprintf(line, format, ArgList);
+
+	const char* levels[] = { "Fatal", "Error", "Warn", "Info", "Debug" };
+
+	char time[100];
+	GetDateFormatA(LOCALE_USER_DEFAULT, 0, NULL, "yyyy'-'MM'-'dd HH':'mm", time, sizeof(time));
+
+	fprintf(logFile, "[%s][%s][%s:%d]%s\n", time, levels[loglevel], filename, fileline, line);
+
+	va_end(ArgList);
 }
 
 RZSTATUS lastLogStatus = BROADCAST_SUCCESS;
@@ -393,8 +416,6 @@ private:
 		DataPath.resize(strlen(DataPath.c_str()));
 		RegCloseKey(phkResult);
 
-		printf((DataPath + "\\broadcast.dat").c_str());
-
 		FILE* f = fopen((DataPath + "\\broadcast.dat").c_str(), "rb");
 		if (!f)
 			return -1;
@@ -715,5 +736,41 @@ extern "C" RZRESULT UnRegisterEventNotification()
 
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
 {
+	if (dwReason == DLL_PROCESS_ATTACH)
+	{
+		DisableThreadLibraryCalls(hModule);
+
+		HKEY phkResult;
+		if (RegOpenKeyExA(HKEY_LOCAL_MACHINE, RZBROADCAST_REG_SUBKEY, 0, KEY_ALL_ACCESS, &phkResult))
+			return TRUE;
+
+		std::string InstallPath;
+		InstallPath.resize(260);
+		DWORD InstallPathLen = 260;
+		if (RegQueryValueExA(phkResult, "InstallPath", 0, 0, (LPBYTE)InstallPath.data(), &InstallPathLen))
+		{
+			RegCloseKey(phkResult);
+			return TRUE;
+		}
+		InstallPath.resize(strlen(InstallPath.c_str()));
+		RegCloseKey(phkResult);
+		InstallPath += "\\Logs\\";
+
+		char Filename[260];
+		if (!GetModuleFileNameA(0, Filename, sizeof(Filename)))
+			return TRUE;
+
+		PathStripPathA(Filename);
+		PathRemoveExtensionA(Filename);
+		PathAddExtensionA(Filename, ".log");
+		InstallPath += Filename;
+
+		logFile = fopen(InstallPath.c_str(), "a");
+	}
+	else
+	{
+		fclose(logFile);
+		logFile = nullptr;
+	}
 	return TRUE;
 }
