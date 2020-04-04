@@ -339,6 +339,35 @@ private:
 		return 0;
 	}
 
+	static void RegisterApp()
+	{
+		std::string regKey = std::string(RZBROADCAST_REG_SUBKEY) + "\\" + Title + ".exe";
+
+		HKEY phkResult;
+		bool NewReg = true;
+		if (!RegOpenKeyExA(HKEY_LOCAL_MACHINE, regKey.c_str(), 0, KEY_ALL_ACCESS, &phkResult))
+		{
+			NewReg = false;
+			RegCloseKey(phkResult);
+		}
+
+		HKEY hKey;
+		if (!RegCreateKeyExA(HKEY_LOCAL_MACHINE, regKey.c_str(), 0, 0, 0, KEY_ALL_ACCESS, 0, &hKey, 0))
+		{
+			RegSetValueExA(hKey, "Title", 0, REG_SZ, (LPBYTE)Title.c_str(), Title.size());
+			char path[260];
+			GetModuleFileNameA(0, path, sizeof(path));
+			RegSetValueExA(hKey, "Path", 0, REG_SZ, (LPBYTE)path, strlen(path));
+			if (NewReg)
+			{
+				DWORD one = 1;
+				RegSetValueExW(hKey, L"Enable", 0, REG_DWORD, (LPBYTE)&one, sizeof(one));
+			}
+			RegSetValueExW(hKey, L"Index", 0, REG_DWORD, (LPBYTE)&Index, sizeof(Index));
+			RegCloseKey(hKey);
+		}
+	}
+
 	static int VerifyAppId(RZAPPID app)
 	{
 		int ret = -1;
@@ -393,31 +422,7 @@ private:
 				Index = strtol(std::string(app["index"]).c_str(), NULL, 10);
 				Title = app["title"];
 
-				std::string regKey = std::string(RZBROADCAST_REG_SUBKEY) + "\\" + Title + ".exe";
-
-				HKEY phkResult;
-				bool NewReg = true;
-				if (!RegOpenKeyExA(HKEY_LOCAL_MACHINE, regKey.c_str(), 0, KEY_ALL_ACCESS, &phkResult))
-				{
-					NewReg = false;
-					RegCloseKey(phkResult);
-				}
-
-				HKEY hKey;
-				if (!RegCreateKeyExA(HKEY_LOCAL_MACHINE, regKey.c_str(), 0, 0, 0, KEY_ALL_ACCESS, 0, &hKey, 0))
-				{
-					RegSetValueExA(hKey, "Title", 0, REG_SZ, (LPBYTE)Title.c_str(), Title.size());
-					char path[260];
-					GetModuleFileNameA(0, path, sizeof(path));
-					RegSetValueExA(hKey, "Path", 0, REG_SZ, (LPBYTE)path, strlen(path));
-					if (NewReg)
-					{
-						DWORD one = 1;
-						RegSetValueExW(hKey, L"Enable", 0, REG_DWORD, (LPBYTE)&one, sizeof(one));
-					}
-					RegSetValueExW(hKey, L"Index", 0, REG_DWORD, (LPBYTE)&Index, sizeof(Index));
-					RegCloseKey(hKey);
-				}
+				RegisterApp();
 
 				ret = Status == 2 ? (PathFileExistsA((DataPath + "\\" + RZBROADCAST_DEV_ENABLE).c_str()) ? 2 : 3) : 1;
 				break;
@@ -463,6 +468,75 @@ public:
 			CloseHandle(AppNumEvent);
 		}
 
+		BroadcastEventData = CreateEventW(NULL, TRUE, FALSE, RZBROADCAST_EVENT);
+		if (!BroadcastEventData)
+		{
+			res = GetLastError();
+			if (res)
+				Log(RZLOGLEVEL_ERROR, __FILE__, __LINE__, "[ChromaBroadcastAPI]%s returns error code %d | Failed to create Broadcast Event Data", __FUNCTION__, res);
+		}
+
+		InitializeCriticalSection(&Critical);
+
+		if (BroadcastEventData)
+		{
+			if (!BroadcastDataThreadHandle || BroadcastDataThreadHandle == INVALID_HANDLE_VALUE)
+			{
+				BroadcastDataThreadHandle = CreateThread(NULL, 0, Thread_BroadcastData, NULL, 0, NULL);
+				if (!BroadcastDataThreadHandle)
+				{
+					res = GetLastError();
+					if (res)
+						Log(RZLOGLEVEL_ERROR, __FILE__, __LINE__, "[ChromaBroadcastAPI]%s returns error code %d | Failed to create Broadcast Data thread", __FUNCTION__, res);
+				}
+				if (!MonitorOnlineThreadHandle || MonitorOnlineThreadHandle == INVALID_HANDLE_VALUE)
+				{
+					MonitorOnlineThreadHandle = CreateThread(NULL, 0, Thread_MonitorOnline, NULL, 0, NULL);
+					if (!MonitorOnlineThreadHandle)
+					{
+						res = GetLastError();
+						if (res)
+							Log(RZLOGLEVEL_ERROR, __FILE__, __LINE__, "[ChromaBroadcastAPI]%s returns error code %d | Failed to create Monitor Online thread", __FUNCTION__, res);
+					}
+				}
+			}
+			if (BroadcastEventData && BroadcastDataThreadHandle)
+			{
+				if (MonitorOnlineThreadHandle)
+					res = 0;
+			}
+		}
+
+		UninitEvent = CreateEventW(NULL, TRUE, FALSE, NULL);
+		Log(RZLOGLEVEL_INFO, __FILE__, __LINE__, "[ChromaBroadcastAPI][END]%s", __FUNCTION__);
+		return res;
+	}
+
+	static RZRESULT InitEx(int index, std::string title)
+	{
+		Index = index;
+		Title = title;
+
+		Log(RZLOGLEVEL_INFO, __FILE__, __LINE__, "[ChromaBroadcastAPI][START]%s", __FUNCTION__);
+
+		HKEY phkResult;
+		if (RegOpenKeyExA(HKEY_LOCAL_MACHINE, RZBROADCAST_REG_SUBKEY, 0, KEY_ALL_ACCESS, &phkResult))
+		{
+			Log(RZLOGLEVEL_ERROR, __FILE__, __LINE__, "[ChromaBroadcastAPI]%s returns error code %d | Broadcast Module Not Installed", __FUNCTION__, RZRESULT_NOT_FOUND);
+			return RZRESULT_NOT_FOUND;
+		}
+		RegCloseKey(phkResult);
+
+		RegisterApp();
+
+		HANDLE AppNumEvent = OpenEventW(EVENT_ALL_ACCESS, FALSE, RZBROADCAST_APP_NUM_EVENT);
+		if (AppNumEvent)
+		{
+			PulseEvent(AppNumEvent);
+			CloseHandle(AppNumEvent);
+		}
+
+		RZRESULT res = RZRESULT_SUCCESS;
 		BroadcastEventData = CreateEventW(NULL, TRUE, FALSE, RZBROADCAST_EVENT);
 		if (!BroadcastEventData)
 		{
@@ -601,6 +675,14 @@ extern "C" RZRESULT Init(RZAPPID app)
 		return RZRESULT_ALREADY_INITIALIZED;
 	CChromaBroadcastAPI::IsInitialized = true;
 	return CChromaBroadcastAPI::Init(app);
+}
+
+extern "C" RZRESULT InitEx(int index, std::string title)
+{
+	if (CChromaBroadcastAPI::IsInitialized)
+		return RZRESULT_ALREADY_INITIALIZED;
+	CChromaBroadcastAPI::IsInitialized = true;
+	return CChromaBroadcastAPI::InitEx(index, title);
 }
 
 extern "C" RZRESULT UnInit()

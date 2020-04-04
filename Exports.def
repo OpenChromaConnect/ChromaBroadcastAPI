@@ -1,6 +1,7 @@
 LIBRARY ChromaBroadcastAPI
 EXPORTS
 	Init
+	InitEx
 	UnInit
 	RegisterEventNotification
 	UnRegisterEventNotification
