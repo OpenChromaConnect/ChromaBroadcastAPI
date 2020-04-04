@@ -1,0 +1,6 @@
+LIBRARY ChromaBroadcastAPI
+EXPORTS
+	Init
+	UnInit
+	RegisterEventNotification
+	UnRegisterEventNotification
