@@ -149,7 +149,7 @@ private:
 	static bool CheckIsChromaBroadcastEnabled()
 	{
 		HKEY phkResult;
-		if (RegOpenKeyExA(HKEY_LOCAL_MACHINE, RZBROADCAST_REG_SUBKEY, 0, KEY_ALL_ACCESS, &phkResult))
+		if (RegOpenKeyExA(HKEY_LOCAL_MACHINE, RZBROADCAST_REG_SUBKEY, 0, KEY_ALL_ACCESS | KEY_WOW64_32KEY, &phkResult))
 			return false;
 
 		DWORD Enable = 0;
@@ -167,7 +167,7 @@ private:
 	static bool CheckIsChromaBroadcastForAppEnabled()
 	{
 		HKEY phkResult;
-		if (RegOpenKeyExA(HKEY_LOCAL_MACHINE, (std::string(RZBROADCAST_REG_SUBKEY) + "\\" + Title + ".exe").c_str(), 0, KEY_ALL_ACCESS, &phkResult))
+		if (RegOpenKeyExA(HKEY_LOCAL_MACHINE, (std::string(RZBROADCAST_REG_SUBKEY) + "\\" + Title + ".exe").c_str(), 0, KEY_ALL_ACCESS | KEY_WOW64_32KEY, &phkResult))
 			return false;
 
 		DWORD Enable = 0;
@@ -368,14 +368,14 @@ private:
 
 		HKEY phkResult;
 		bool NewReg = true;
-		if (!RegOpenKeyExA(HKEY_LOCAL_MACHINE, regKey.c_str(), 0, KEY_ALL_ACCESS, &phkResult))
+		if (!RegOpenKeyExA(HKEY_LOCAL_MACHINE, regKey.c_str(), 0, KEY_ALL_ACCESS | KEY_WOW64_32KEY, &phkResult))
 		{
 			NewReg = false;
 			RegCloseKey(phkResult);
 		}
 
 		HKEY hKey;
-		if (!RegCreateKeyExA(HKEY_LOCAL_MACHINE, regKey.c_str(), 0, 0, 0, KEY_ALL_ACCESS, 0, &hKey, 0))
+		if (!RegCreateKeyExA(HKEY_LOCAL_MACHINE, regKey.c_str(), 0, 0, 0, KEY_ALL_ACCESS | KEY_WOW64_32KEY, 0, &hKey, 0))
 		{
 			RegSetValueExA(hKey, "Title", 0, REG_SZ, (LPBYTE)Title.c_str(), Title.size());
 			char path[260];
@@ -402,7 +402,7 @@ private:
 		std::string guidStr(guidWStr.begin(), guidWStr.end());
 
 		HKEY phkResult;
-		if (RegOpenKeyExA(HKEY_LOCAL_MACHINE, RZBROADCAST_REG_SUBKEY, 0, KEY_ALL_ACCESS, &phkResult))
+		if (RegOpenKeyExA(HKEY_LOCAL_MACHINE, RZBROADCAST_REG_SUBKEY, 0, KEY_ALL_ACCESS | KEY_WOW64_32KEY, &phkResult))
 			return -1;
 
 		std::string DataPath;
@@ -460,7 +460,7 @@ public:
 		Log(RZLOGLEVEL_INFO, __FILE__, __LINE__, "[ChromaBroadcastAPI][START]%s", __FUNCTION__);
 
 		HKEY phkResult;
-		if (RegOpenKeyExA(HKEY_LOCAL_MACHINE, RZBROADCAST_REG_SUBKEY, 0, KEY_ALL_ACCESS, &phkResult))
+		if (RegOpenKeyExA(HKEY_LOCAL_MACHINE, RZBROADCAST_REG_SUBKEY, 0, KEY_ALL_ACCESS | KEY_WOW64_32KEY, &phkResult))
 		{
 			Log(RZLOGLEVEL_ERROR, __FILE__, __LINE__, "[ChromaBroadcastAPI]%s returns error code %d | Broadcast Module Not Installed", __FUNCTION__, RZRESULT_NOT_FOUND);
 			return RZRESULT_NOT_FOUND;
@@ -541,7 +541,7 @@ public:
 		Log(RZLOGLEVEL_INFO, __FILE__, __LINE__, "[ChromaBroadcastAPI][START]%s", __FUNCTION__);
 
 		HKEY phkResult;
-		if (RegOpenKeyExA(HKEY_LOCAL_MACHINE, RZBROADCAST_REG_SUBKEY, 0, KEY_ALL_ACCESS, &phkResult))
+		if (RegOpenKeyExA(HKEY_LOCAL_MACHINE, RZBROADCAST_REG_SUBKEY, 0, KEY_ALL_ACCESS | KEY_WOW64_32KEY, &phkResult))
 		{
 			Log(RZLOGLEVEL_ERROR, __FILE__, __LINE__, "[ChromaBroadcastAPI]%s returns error code %d | Broadcast Module Not Installed", __FUNCTION__, RZRESULT_NOT_FOUND);
 			return RZRESULT_NOT_FOUND;
@@ -743,7 +743,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
 		DisableThreadLibraryCalls(hModule);
 
 		HKEY phkResult;
-		if (RegOpenKeyExA(HKEY_LOCAL_MACHINE, RZBROADCAST_REG_SUBKEY, 0, KEY_ALL_ACCESS, &phkResult))
+		if (RegOpenKeyExA(HKEY_LOCAL_MACHINE, RZBROADCAST_REG_SUBKEY, 0, KEY_ALL_ACCESS | KEY_WOW64_32KEY, &phkResult))
 			return TRUE;
 
 		std::string InstallPath;
@@ -771,8 +771,11 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
 	}
 	else
 	{
-		fclose(logFile);
-		logFile = nullptr;
+		if (logFile)
+		{
+			fclose(logFile);
+			logFile = nullptr;
+		}
 	}
 	return TRUE;
 }
