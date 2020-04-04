@@ -674,6 +674,8 @@ public:
 		}
 
 		Log(RZLOGLEVEL_INFO, __FILE__, __LINE__, "[ChromaBroadcastAPI][END]%s", __FUNCTION__);
+
+		return RZRESULT_SUCCESS;
 	}
 };
 
@@ -731,7 +733,7 @@ extern "C" RZRESULT UnRegisterEventNotification()
 	if (!CChromaBroadcastAPI::IsInitialized)
 		return RZRESULT_NOT_VALID_STATE;
 
-	return UnRegisterEventNotification();
+	return CChromaBroadcastAPI::UnRegisterEventNotification();
 }
 
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD dwReason, LPVOID lpReserved)
