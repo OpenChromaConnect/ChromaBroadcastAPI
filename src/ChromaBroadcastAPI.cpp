@@ -47,8 +47,10 @@ struct RZEventData
 struct RZEventSharedMemoryData
 {
 	DWORD idx;
-	DWORD Reserved;
-	RZEventData events[10];
+	DWORD Reserved0;
+	RZEventData events[20];
+	DWORD Index;
+	DWORD Reserved2;
 };
 #pragma pack(pop)
 
@@ -198,102 +200,92 @@ private:
 			bool IsChromaBroadcastForAppEnabled = false;
 			while (TryEnterCriticalSection(&Critical))
 			{
-				ULONGLONG startTick = GetTickCount64();
-				
-				auto idx = shared.mem->idx - 1;
-				if (idx == -1)
-					idx = 9;
-				if (idx < 10)
+				auto idx = shared.mem->idx;
+				idx = idx > 0 ? idx - 1 : 19;
+				RZEventData* event = &shared.mem->events[idx];
+
+				CHROMA_BROADCAST_EFFECT effect;
+				memcpy(&effect, &event->effect, sizeof(CHROMA_BROADCAST_EFFECT));
+
+				if (!needSynapse3Check)
 				{
-					RZEventData* event = &shared.mem->events[idx];
 					__time64_t Time;
-
-					CHROMA_BROADCAST_EFFECT effect;
-					memcpy(&effect, &event->effect, sizeof(CHROMA_BROADCAST_EFFECT));
-
-					if (!needSynapse3Check)
+					double diff = _difftime64(_time64(&Time), lastTime);
+					if (!Running)
 					{
-						double diff =_difftime64(_time64(&Time), lastTime);
-						if (!Running)
-						{
-							if (diff > 0.5)
-								needSynapse3Check = true;
-						}
-						if (diff > 2.0)
-						{
+						if (diff > 0.5)
 							needSynapse3Check = true;
-						}
 					}
+					if (diff > 2.0)
+					{
+						needSynapse3Check = true;
+					}
+				}
 
-					bool sendEvent = true;
-					if (effect.IsAppSpecific == 1 && event->index)
-					{
-						if (Index != event->index)
-							sendEvent = false;
-					}
+				bool sendEvent = true;
+				if (effect.IsAppSpecific == 1 && event->index)
+				{
+					if (Index != event->index)
+						sendEvent = false;
+				}
 
-					if (needSynapse3Check)
+				if (needSynapse3Check)
+				{
+					OpenSynapse3MutexSuccess = false;
+					DeviceFound = true;
+					HANDLE Synapse3Mutex = OpenMutexW(MUTEX_ALL_ACCESS, FALSE, RZSYNAPSE3_MUTEX);
+					if (Synapse3Mutex)
 					{
-						OpenSynapse3MutexSuccess = false;
-						DeviceFound = true;
-						HANDLE Synapse3Mutex = OpenMutexW(MUTEX_ALL_ACCESS, FALSE, RZSYNAPSE3_MUTEX);
-						if (Synapse3Mutex)
-						{
-							ReleaseMutex(Synapse3Mutex);
-							CloseHandle(Synapse3Mutex);
-							OpenSynapse3MutexSuccess = true;
-						}
-						IsChromaBroadcastEnabled = CheckIsChromaBroadcastEnabled();
-						IsChromaBroadcastForAppEnabled = CheckIsChromaBroadcastForAppEnabled();
-						_time64(&lastTime);
-						needSynapse3Check = 0;
+						ReleaseMutex(Synapse3Mutex);
+						CloseHandle(Synapse3Mutex);
+						OpenSynapse3MutexSuccess = true;
 					}
+					IsChromaBroadcastEnabled = CheckIsChromaBroadcastEnabled();
+					IsChromaBroadcastForAppEnabled = CheckIsChromaBroadcastForAppEnabled();
+					_time64(&lastTime);
+					needSynapse3Check = 0;
+				}
 
-					if (!DeviceFound)
+				if (!DeviceFound)
+				{
+					SetBroadcastLog(CHROMA_DEVICE_NOT_FOUND);
+				}
+				else if (OpenSynapse3MutexSuccess)
+				{
+					if (!IsChromaBroadcastEnabled)
 					{
-						SetBroadcastLog(CHROMA_DEVICE_NOT_FOUND);
+						SetBroadcastLog(BROADCAST_DISABLED);
 					}
-					else if (OpenSynapse3MutexSuccess)
+					else if (!IsChromaBroadcastForAppEnabled)
 					{
-						if (!IsChromaBroadcastEnabled)
-						{
-							SetBroadcastLog(BROADCAST_DISABLED);
-						}
-						else if (!IsChromaBroadcastForAppEnabled)
-						{
-							SetBroadcastLog(BROADCAST_APP_DISABLED);
-						}
+						SetBroadcastLog(BROADCAST_APP_DISABLED);
 					}
-					else if (Synapse3NotOnline == true)
-					{
-						SetBroadcastLog(SYNAPSE3_NOT_ONLINE);
-					}
+				}
+				else if (Synapse3NotOnline == true)
+				{
+					SetBroadcastLog(SYNAPSE3_NOT_ONLINE);
+				}
 
-					if (NotificationCallback)
+				if (NotificationCallback)
+				{
+					if (OpenSynapse3MutexSuccess && DeviceFound && IsChromaBroadcastEnabled && IsChromaBroadcastForAppEnabled)
 					{
-						if (OpenSynapse3MutexSuccess && DeviceFound && IsChromaBroadcastEnabled && IsChromaBroadcastForAppEnabled)
+						if (sendEvent)
 						{
-							if (sendEvent)
+							NotificationCallback(BROADCAST_EFFECT, &effect);
+							if (!Running)
 							{
-								NotificationCallback(BROADCAST_EFFECT, &effect);
-								if (!Running)
-								{
-									NotificationCallback(BROADCAST_STATUS, (PRZPARAM) LIVE);
-									Running = true;
-								}
-								SetBroadcastLog(BROADCAST_SUCCESS);
+								NotificationCallback(BROADCAST_STATUS, (PRZPARAM) LIVE);
+								Running = true;
 							}
-						}
-						else if (Running)
-						{
-							NotificationCallback(BROADCAST_STATUS, (PRZPARAM) NOT_LIVE);
-							Running = false;
+							SetBroadcastLog(BROADCAST_SUCCESS);
 						}
 					}
-
-					ULONGLONG endStartDiff = GetTickCount64() - startTick;
-					if ((double)endStartDiff < 33.33333333333334)
-						Sleep((unsigned int)(33.33333333333334 - (double)endStartDiff));
+					else if (Running)
+					{
+						NotificationCallback(BROADCAST_STATUS, (PRZPARAM) NOT_LIVE);
+						Running = false;
+					}
 				}
 
 				LeaveCriticalSection(&Critical);
@@ -438,12 +430,12 @@ private:
 		{
 			if (guidStr == app["guid"])
 			{
-				int Status = strtol(std::string(app["status"]).c_str(), NULL, 10);
+				int Status = strtol(app["status"].get<std::string>().c_str(), NULL, 10);
 				if (Status != 1 && Status != 2)
 					continue;
 
-				Index = strtol(std::string(app["index"]).c_str(), NULL, 10);
-				Title = app["title"];
+				Index = strtol(app["index"].get<std::string>().c_str(), NULL, 10);
+				Title = app["title"].get<std::string>();
 
 				RegisterApp();
 
@@ -702,7 +694,7 @@ extern "C" RZRESULT Init(RZAPPID app)
 	return CChromaBroadcastAPI::Init(app);
 }
 
-extern "C" RZRESULT InitEx(int index, std::string title)
+extern "C" RZRESULT InitEx(int index, const char *title)
 {
 	if (CChromaBroadcastAPI::IsInitialized)
 		return RZRESULT_ALREADY_INITIALIZED;
