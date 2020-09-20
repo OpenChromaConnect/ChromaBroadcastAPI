@@ -48,9 +48,7 @@ struct RZEventSharedMemoryData
 {
 	DWORD idx;
 	DWORD Reserved0;
-	RZEventData events[20];
-	DWORD Index;
-	DWORD Reserved2;
+	RZEventData events[10];
 };
 #pragma pack(pop)
 
@@ -201,7 +199,7 @@ private:
 			while (TryEnterCriticalSection(&Critical))
 			{
 				auto idx = shared.mem->idx;
-				idx = idx > 0 ? idx - 1 : 19;
+				idx = idx > 0 ? idx - 1 : (sizeof(RZEventSharedMemoryData::events) / sizeof(RZEventSharedMemoryData::events[0])) - 1;
 				RZEventData* event = &shared.mem->events[idx];
 
 				CHROMA_BROADCAST_EFFECT effect;
